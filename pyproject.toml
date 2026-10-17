@@ -1,11 +1,11 @@
+
 [project]
 name = "hstego-web"
 version = "0.1.0"
 description = "HStego image steganography web app"
-readme = "README.md"
-requires-python = ">=3.11,<3.13"
+requires-python = ">=3.12,<3.13"
 dependencies = [
-    "streamlit>=1.40.0",
+    "streamlit",
     "Pillow",
     "imageio",
     "numpy",
@@ -17,3 +17,4 @@ dependencies = [
 
 [tool.uv]
 package = false
+
