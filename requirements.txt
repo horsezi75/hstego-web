@@ -1,9 +1,3 @@
 
 streamlit
 Pillow
-imageio
-numpy
-scipy
-pycryptodome
-numba
-git+https://github.com/daniellerch/hstego.git@v0.6.1
