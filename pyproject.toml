@@ -1,11 +1,18 @@
 [project]
-name = "blank-app-template"
+name = "hstego-web"
 version = "0.1.0"
-description = "A simple Streamlit app template."
+description = "HStego image steganography web app"
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.11,<3.13"
 dependencies = [
-    "streamlit>=1.61.1",
+    "streamlit>=1.40.0",
+    "Pillow",
+    "imageio",
+    "numpy",
+    "scipy",
+    "pycryptodome",
+    "numba",
+    "hstego @ git+https://github.com/daniellerch/hstego.git@v0.6.1",
 ]
 
 [tool.uv]
