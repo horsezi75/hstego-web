@@ -7,7 +7,7 @@ import streamlit as st
 
 st.set_page_config(page_title="HStego 图片隐写", page_icon="🔐")
 st.title("🔐 HStego 图片隐写工具")
-st.write("尝试调用官方 HStego v0.6.1 Linux 程序。")
+st.write("官方 HStego v0.6.1 测试版")
 
 BINARY_URL = (
     "https://github.com/daniellerch/hstego/releases/download/"
@@ -40,10 +40,20 @@ def run_hstego(args, folder):
         text=True,
         timeout=120,
     )
+
+    output = "\n".join(
+        part.strip()
+        for part in (result.stdout, result.stderr)
+        if part.strip()
+    )
+
     if result.returncode != 0:
-        detail = result.stderr or result.stdout or "程序没有提供错误详情"
-        raise RuntimeError(detail)
-    return result.stdout
+        raise RuntimeError(
+            f"官方程序退出码：{result.returncode}\n"
+            f"{output or '没有返回错误详情'}"
+        )
+
+    return output
 
 
 hide_tab, extract_tab = st.tabs(["隐藏文字", "提取文字"])
@@ -55,10 +65,14 @@ with hide_tab:
         key="cover",
     )
     message = st.text_area("要隐藏的文字")
-    password = st.text_input("设置提取密码", type="password")
+    password = st.text_input(
+        "设置提取密码",
+        type="password",
+        key="hide_password",
+    )
 
     if st.button("生成隐写图片"):
-        if cover is None or not message or not password:
+        if cover is None or not message.strip() or not password:
             st.warning("请上传图片、填写文字并设置密码。")
         else:
             try:
@@ -67,34 +81,58 @@ with hide_tab:
                     if ext not in [".png", ".bmp", ".jpg", ".jpeg"]:
                         ext = ".png"
 
-                    cover_path = os.path.join(folder, "cover" + ext)
-                    secret_path = os.path.join(folder, "secret.txt")
-                    output_path = os.path.join(folder, "stego" + ext)
+                    cover_name = "cover" + ext
+                    stego_name = "stego" + ext
+                    output_path = os.path.join(folder, stego_name)
 
-                    with open(cover_path, "wb") as f:
+                    with open(
+                        os.path.join(folder, cover_name), "wb"
+                    ) as f:
                         f.write(cover.getvalue())
 
-                    with open(secret_path, "w", encoding="utf-8") as f:
+                    with open(
+                        os.path.join(folder, "secret.txt"),
+                        "w",
+                        encoding="utf-8",
+                    ) as f:
                         f.write(message)
 
-                    run_hstego(
-                        ["embed", "secret.txt", "cover" + ext,
-                         "stego" + ext, password],
+                    output = run_hstego(
+                        [
+                            "embed",
+                            "secret.txt",
+                            cover_name,
+                            stego_name,
+                            password,
+                        ],
                         folder,
                     )
 
-                    with open(output_path, "rb") as f:
-                        result = f.read()
+                    if not os.path.isfile(output_path):
+                        raise RuntimeError(
+                            "官方程序没有生成隐写图片。\n" + output
+                        )
 
-                    st.success("处理完成。")
+                    with open(output_path, "rb") as f:
+                        image_data = f.read()
+
+                    if not image_data:
+                        raise RuntimeError("生成的图片文件为空。")
+
+                    st.success("隐写图片已生成。")
                     st.download_button(
                         "下载隐写图片",
-                        data=result,
-                        file_name="stego" + ext,
+                        data=image_data,
+                        file_name=stego_name,
                         mime=cover.type or "application/octet-stream",
                     )
+
+                    if output:
+                        with st.expander("查看官方程序输出"):
+                            st.code(output)
+
             except Exception as e:
-                st.error(f"处理失败：{e}")
+                st.error(f"生成失败：{e}")
 
 
 with extract_tab:
@@ -119,22 +157,52 @@ with extract_tab:
                     if ext not in [".png", ".bmp", ".jpg", ".jpeg"]:
                         ext = ".png"
 
-                    input_path = os.path.join(folder, "stego" + ext)
+                    stego_name = "stego" + ext
                     output_path = os.path.join(folder, "content.txt")
 
-                    with open(input_path, "wb") as f:
+                    with open(
+                        os.path.join(folder, stego_name), "wb"
+                    ) as f:
                         f.write(stego.getvalue())
 
-                    run_hstego(
-                        ["extract", "stego" + ext,
-                         "content.txt", extract_password],
+                    output = run_hstego(
+                        [
+                            "extract",
+                            stego_name,
+                            "content.txt",
+                            extract_password,
+                        ],
                         folder,
                     )
 
-                    with open(output_path, "r", encoding="utf-8") as f:
+                    if not os.path.isfile(output_path):
+                        raise RuntimeError(
+                            "官方程序没有生成提取结果文件。\n" + output
+                        )
+
+                    with open(
+                        output_path, "r", encoding="utf-8"
+                    ) as f:
                         content = f.read()
 
-                    st.success("提取完成。")
-                    st.text_area("提取出的文字", content, height=180)
+                    if not content.strip():
+                        st.warning(
+                            "提取结果为空。请确认上传的是本工具生成的"
+                            "隐写图片，并且密码与隐藏时完全一致。"
+                        )
+                        if output:
+                            st.code(output)
+                    else:
+                        st.success("已读取到提取出的文字。")
+                        st.text_area(
+                            "提取出的文字",
+                            content,
+                            height=180,
+                        )
+
+                    if output:
+                        with st.expander("查看官方程序输出"):
+                            st.code(output)
+
             except Exception as e:
                 st.error(f"提取失败：{e}")
